@@ -5,15 +5,20 @@ import { SessionProvider } from "next-auth/react";
 import { api } from "~/utils/api";
 
 import "~/styles/globals.css";
+import { ThemeProvider } from "next-themes";
+import { Toaster } from "~/components/ui/toaster";
 
 const MyApp: AppType<{ session: Session | null }> = ({
   Component,
   pageProps: { session, ...pageProps },
 }) => {
   return (
-    <SessionProvider session={session}>
-      <Component {...pageProps} />
-    </SessionProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <SessionProvider session={session}>
+        <Component {...pageProps} />
+        <Toaster />
+      </SessionProvider>
+    </ThemeProvider>
   );
 };
 

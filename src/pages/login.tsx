@@ -15,8 +15,6 @@ export const metadata: Metadata = {
   description: "Login to your account",
 };
 
-
-
 const LoginPage = () => {
   const [error, setError] = React.useState<string | null>(null);
   const router = useRouter();

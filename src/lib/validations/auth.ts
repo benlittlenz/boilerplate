@@ -36,7 +36,12 @@ export const resetPasswordSchema = loginSchema
     message: "Passwords do not match",
   });
 
+export const settingsSchema = z.object({
+    name: z.string().max(32, "Name must be less than 32 characters"),
+})
+
 export type ILogin = z.infer<typeof loginSchema>;
 export type IRegister = z.infer<typeof registerSchema>;
 export type IForgotPassword = z.infer<typeof forgotPasswordSchema>;
 export type IResetPassword = z.infer<typeof resetPasswordSchema>;
+export type ISettings = z.infer<typeof settingsSchema>;

@@ -4,11 +4,12 @@ import { TRPCError } from "@trpc/server";
 import { hash } from "argon2";
 import dayjs from "dayjs";
 import { sendResetPasswordEmail } from "emails/utils/email-manager";
-import { forgotPasswordSchema, registerSchema } from "~/lib/validations/auth";
+import { forgotPasswordSchema, registerSchema, settingsSchema } from "~/lib/validations/auth";
 
 import {
   createTRPCRouter,
   publicProcedure,
+  protectedProcedure,
 } from "~/server/api/trpc";
 
 export const userRouter = createTRPCRouter({
@@ -55,51 +56,74 @@ export const userRouter = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
       const { email } = input;
 
-    const user = await ctx.prisma.user.findFirst({
-      where: { email },
-    });
-
-    if (!user || !user.email) {
-      throw new TRPCError({
-        code: "NOT_FOUND",
-        message: "User not found",
+      const user = await ctx.prisma.user.findFirst({
+        where: { email },
       });
-    }
 
-    const hasPreviousRequest = await ctx.prisma.resetPasswordRequest.findMany({
-      where: {
-        email: user.email,
-        expires: {
-          gt: new Date(),
-        },
-      },
-    });
+      if (!user || !user.email) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "User not found",
+        });
+      }
 
-    let passwordReq: ResetPasswordRequest;
+      const hasPreviousRequest = await ctx.prisma.resetPasswordRequest.findMany(
+        {
+          where: {
+            email: user.email,
+            expires: {
+              gt: new Date(),
+            },
+          },
+        }
+      );
 
-    if (hasPreviousRequest && hasPreviousRequest.length > 0) {
+      let passwordReq: ResetPasswordRequest;
+
+      if (hasPreviousRequest && hasPreviousRequest.length > 0) {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         passwordReq = hasPreviousRequest[0]!;
-    } else {
+      } else {
         const expiry = dayjs().add(6, "hours").toDate();
         const createdResetPasswordRequest =
-        await ctx.prisma.resetPasswordRequest.create({
+          await ctx.prisma.resetPasswordRequest.create({
             data: {
-            email: user.email,
-            expires: expiry,
+              email: user.email,
+              expires: expiry,
             },
-        });
+          });
         passwordReq = createdResetPasswordRequest;
-    }
-    const resetLink = `http://localhost:${
+      }
+      const resetLink = `http://localhost:${
         process.env.PORT ?? 3000
-    }/forgot-password/${passwordReq.id}`;
+      }/forgot-password/${passwordReq.id}`;
 
-    console.log("resetLink >>> ", resetLink);
-    await sendResetPasswordEmail({
-      to: user.email,
-      resetLink,
-      name: user.name ?? "",
-    });
+      console.log("resetLink >>> ", resetLink);
+      await sendResetPasswordEmail({
+        to: user.email,
+        resetLink,
+        name: user.name ?? "",
+      });
+    }),
+  updateSettings: protectedProcedure
+    .input(settingsSchema)
+    .mutation(async ({ input, ctx }) => {
+        const { name } = input;
+
+        try {
+            await ctx.prisma.user.update({
+              where: {
+                id: ctx.session.user.id
+              },
+              data: {
+                name,
+              },
+            });
+        } catch(err) {
+            throw new TRPCError({
+                code: "INTERNAL_SERVER_ERROR",
+                message: "Unable to update profile",
+            })
+        }
     }),
 });
